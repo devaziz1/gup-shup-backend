@@ -22,10 +22,6 @@ const blogSchema = new Schema(
     commentCount: { type: Number, default: 0 },
     likeCount: { type: Number, default: 0 },
     likes: { type: [String], default: [] },
-    category: {
-      type: String,
-      enum: ["Technology", "Sports", "Business", "Health", "Entertainment"],
-    },
     tags: { type: [String], default: [] },
     comments: [commentSchema],
     image: { type: String },

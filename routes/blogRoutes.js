@@ -26,6 +26,8 @@ const upload = multer({ storage });
 
 router.post("/createBlog", upload.single("image"), blogController.createBlog);
 router.post("/addComment", blogController.addComment);
+router.delete("/deleteComment", blogController.deleteComment);
+
 
 router.delete("/:id",verifyToken, blogController.deleteBlog);
 router.patch("/",verifyToken, blogController.updateBlog);
@@ -37,7 +39,6 @@ router.get("/getBlogsByUserId/:id", verifyToken, blogController.getBlogsByUser);
 router.get("/searchByTitle/:title", verifyToken, blogController.searchBlogsByTitle);
 router.get("/search/:title",verifyToken, blogController.searchBlogsByTitle);
 
-router.get("/searchByCategoryForUser",blogController.searchBlogsByCategoryForUser);
 router.get("/getTotalCounts/:id",verifyToken, blogController.getTotalCounts);
 
 

@@ -1,27 +1,7 @@
 const Blog = require("../models/blogModel");
 const User = require("../models/userModel");
 const mongoose = require("mongoose");
-const fs = require("fs");
 const path = require("path");
-
-const uploadFile = async (file, uploadPath) => {
-  const { createReadStream, filename, mimetype, encoding } = await file;
-  const stream = createReadStream();
-  const filePath = path.join(uploadPath, filename);
-
-  return new Promise((resolve, reject) => {
-    stream
-      .on("error", (error) => {
-        if (stream.truncated)
-          // Delete the truncated file
-          fs.unlinkSync(filePath);
-        reject(error);
-      })
-      .pipe(fs.createWriteStream(filePath))
-      .on("error", (error) => reject(error))
-      .on("finish", () => resolve({ filePath, mimetype, encoding }));
-  });
-};
 
 const createBlog = async (req, res) => {
   try {
@@ -220,97 +200,6 @@ const searchBlogsByTitleDashboard = async (req, res) => {
   }
 };
 
-const searchBlogsByCategoryForUser = async (req, res) => {
-  try {
-    const { category, userId } = req.query;
-
-    console.log("Category:", category);
-    console.log("id:" + userId);
-
-    if (
-      !["Technology", "Sports", "Business", "Health", "Entertainment"].includes(
-        category
-      )
-    ) {
-      return res.status(400).json({ message: "Invalid category" });
-    }
-
-    // Check if user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Find blogs matching the category for the given user
-    const blogs = await Blog.find({ user: userId, category, hide: false });
-
-    if (blogs.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No blogs found for this user in this category" });
-    }
-
-    res.status(200).json(blogs);
-  } catch (error) {
-    console.error("Error searching blogs:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-const searchBlogsByCategory = async (req, res) => {
-  try {
-    const { category } = req.params;
-
-    if (
-      !["Technology", "Sports", "Business", "Health", "Entertainment"].includes(
-        category
-      )
-    ) {
-      return res.status(400).json({ message: "Invalid category" });
-    }
-
-    const blogs = await Blog.find({ category, hide: false });
-
-    if (blogs.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No blogs found in this category" });
-    }
-
-    res.status(200).json(blogs);
-  } catch (error) {
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-const hideBlog = async (req, res) => {
-  try {
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
-      return res.status(404).json({ message: "Blog not found" });
-    }
-    blog.hide = true;
-    await blog.save();
-    res.status(200).json({ message: "Blog hidden successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const unhideBlog = async (req, res) => {
-  try {
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
-      return res.status(404).json({ message: "Blog not found" });
-    }
-    blog.hide = false;
-    await blog.save();
-    res.status(200).json({ message: "Blog unhidden successfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 const likeBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
@@ -379,6 +268,43 @@ const addComment = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+const deleteComment = async (req, res) => {
+    const { blogId, commentId } = req.params;
+
+    try {
+      // Find the blog by ID
+      const blog = await Blog.findById(blogId);
+
+      if (!blog) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+
+      // Find the comment index in the comments array
+      const commentIndex = blog.comments.findIndex(
+        (comment) => comment._id.toString() === commentId
+      );
+
+      if (commentIndex === -1) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      // Remove the comment from the comments array
+      blog.comments.splice(commentIndex, 1);
+
+      // Decrement the commentCount for the blog
+      blog.commentCount = blog.comments.length;
+
+      // Save the updated blog document
+      await blog.save();
+
+      return res.status(200).json({ message: "Comment deleted successfully" });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: "Server error" });
+    }
+
 };
 
 const getTotalCounts = async (req, res) => {
@@ -452,136 +378,6 @@ const getBlogsByUser = async (req, res) => {
   }
 };
 
-const getUserBlogStats = async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const stats = await Blog.aggregate([
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
-      {
-        $project: {
-          dayOfWeek: { $dayOfWeek: "$createdAt" },
-          likeCount: 1,
-          comments: 1,
-        },
-      },
-      {
-        $bucket: {
-          groupBy: "$dayOfWeek",
-          boundaries: [1, 2, 3, 4, 5, 6, 7, 8],
-          default: "Other",
-          output: {
-            totalBlogs: { $sum: 1 },
-            totalLikes: { $sum: "$likeCount" },
-            totalComments: { $sum: { $size: "$comments" } },
-          },
-        },
-      },
-      {
-        $sort: { _id: 1 },
-      },
-    ]);
-
-    const dayNames = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    const result = Array.from({ length: 7 }, (_, i) => {
-      const stat = stats.find((s) => s._id === i + 1);
-      return {
-        day: dayNames[i],
-        totalBlogs: stat ? stat.totalBlogs : 0,
-        totalLikes: stat ? stat.totalLikes : 0,
-        totalComments: stat ? stat.totalComments : 0,
-      };
-    });
-
-    res.status(200).json(result);
-  } catch (error) {
-    console.error("Error getting user daily stats:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-const getUserMonthlyStats = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const monthlyStats = await Blog.aggregate([
-      {
-        $match: {
-          user: new mongoose.Types.ObjectId(userId),
-          createdAt: {
-            $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-            $lt: new Date(
-              new Date().getFullYear(),
-              new Date().getMonth() + 1,
-              1
-            ),
-          },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m", date: "$createdAt" },
-          },
-          totalBlogs: { $sum: 1 },
-          totalLikes: { $sum: "$likeCount" },
-          totalComments: { $sum: "$commentCount" },
-        },
-      },
-      {
-        $sort: { _id: 1 },
-      },
-    ]);
-
-    res.status(200).json(monthlyStats);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-const getUserYearlyStats = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const yearlyStats = await Blog.aggregate([
-      {
-        $match: {
-          user: new mongoose.Types.ObjectId(userId),
-          createdAt: {
-            $gte: new Date(new Date().getFullYear(), 0, 1),
-            $lt: new Date(new Date().getFullYear() + 1, 0, 1),
-          },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y", date: "$createdAt" },
-          },
-          totalBlogs: { $sum: 1 },
-          totalLikes: { $sum: "$likeCount" },
-          totalComments: { $sum: "$commentCount" },
-        },
-      },
-      {
-        $sort: { _id: 1 },
-      },
-    ]);
-
-    res.status(200).json(yearlyStats);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
 const getBlogById = async (req, res) => {
   const id = req.params.id;
   console.log(id);
@@ -623,15 +419,9 @@ module.exports = {
   searchBlogsByTitleDashboard,
   getBlogsByUser,
   searchBlogsByTitle,
-  hideBlog,
-  unhideBlog,
-  searchBlogsByCategoryForUser,
   likeBlog,
   addComment,
   UnlikeBlog,
-  searchBlogsByCategory,
   getTotalCounts,
-  getUserBlogStats,
-  getUserMonthlyStats,
-  getUserYearlyStats,
+  deleteComment,
 };
