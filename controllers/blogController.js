@@ -270,41 +270,74 @@ const addComment = async (req, res) => {
   }
 };
 
-const deleteComment = async (req, res) => {
-    const { blogId, commentId } = req.params;
+const editComment = async (req, res) => {
+  const { commentId, content } = req.body;
 
-    try {
-      // Find the blog by ID
-      const blog = await Blog.findById(blogId);
-
-      if (!blog) {
-        return res.status(404).json({ message: "Blog not found" });
-      }
-
-      // Find the comment index in the comments array
-      const commentIndex = blog.comments.findIndex(
-        (comment) => comment._id.toString() === commentId
-      );
-
-      if (commentIndex === -1) {
-        return res.status(404).json({ message: "Comment not found" });
-      }
-
-      // Remove the comment from the comments array
-      blog.comments.splice(commentIndex, 1);
-
-      // Decrement the commentCount for the blog
-      blog.commentCount = blog.comments.length;
-
-      // Save the updated blog document
-      await blog.save();
-
-      return res.status(200).json({ message: "Comment deleted successfully" });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error" });
+  try {
+    if (!commentId || !content) {
+      return res
+        .status(400)
+        .json({ message: "commentId and content are required" });
     }
 
+    const blog = await Blog.findOne({ "comments._id": commentId });
+
+    if (!blog) {
+      return res
+        .status(404)
+        .json({ message: "Blog with the specified comment not found" });
+    }
+
+    const comment = blog.comments.id(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    comment.content = content;
+
+    await blog.save();
+
+    return res
+      .status(200)
+      .json({ message: "Comment updated successfully", blog });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteComment = async (req, res) => {
+  const { commentId } = req.body;
+
+  try {
+    const blog = await Blog.findOne({ "comments._id": commentId });
+
+    if (!blog) {
+      return res
+        .status(404)
+        .json({ message: "Blog with the specified comment not found" });
+    }
+
+    const commentIndex = blog.comments.findIndex(
+      (comment) => comment._id.toString() === commentId
+    );
+
+    if (commentIndex === -1) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    blog.comments.splice(commentIndex, 1);
+
+    blog.commentCount = blog.comments.length;
+
+    await blog.save();
+
+    return res.status(200).json({ message: "Comment deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
 const getTotalCounts = async (req, res) => {
@@ -424,4 +457,5 @@ module.exports = {
   UnlikeBlog,
   getTotalCounts,
   deleteComment,
+  editComment
 };

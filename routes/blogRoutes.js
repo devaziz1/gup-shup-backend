@@ -23,24 +23,26 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
 router.post("/createBlog", upload.single("image"), blogController.createBlog);
 router.post("/addComment", blogController.addComment);
 router.delete("/deleteComment", blogController.deleteComment);
+router.patch("/editComment", blogController.editComment);
 
-
-router.delete("/:id",verifyToken, blogController.deleteBlog);
-router.patch("/",verifyToken, blogController.updateBlog);
+router.delete("/:id", verifyToken, blogController.deleteBlog);
+router.patch("/", verifyToken, blogController.updateBlog);
 
 router.get("/getAllBlogs", blogController.getAllBlogs);
 router.get("/getBlogById/:id", blogController.getBlogById);
 
 router.get("/getBlogsByUserId/:id", verifyToken, blogController.getBlogsByUser);
-router.get("/searchByTitle/:title", verifyToken, blogController.searchBlogsByTitle);
-router.get("/search/:title",verifyToken, blogController.searchBlogsByTitle);
+router.get(
+  "/searchByTitle/:title",
+  verifyToken,
+  blogController.searchBlogsByTitle
+);
+router.get("/search/:title", verifyToken, blogController.searchBlogsByTitle);
 
-router.get("/getTotalCounts/:id",verifyToken, blogController.getTotalCounts);
-
+router.get("/getTotalCounts/:id", verifyToken, blogController.getTotalCounts);
 
 router.patch("/like/:id", blogController.likeBlog);
 router.patch("/unLike/:id", blogController.UnlikeBlog);
