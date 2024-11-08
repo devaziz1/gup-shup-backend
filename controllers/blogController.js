@@ -57,9 +57,9 @@ const deleteBlog = async (req, res) => {
 
 const updateBlog = async (req, res) => {
   try {
-    const { title, content, category, blogId } = req.body;
+    const { title, content, blogId, tags } = req.body;
     console.log("Inside update blog");
-    console.log(title, content, category, blogId);
+    console.log(title, content, blogId);
     if (!blogId) {
       return res.status(400).json({ message: "Blog ID is required" });
     }
@@ -67,7 +67,9 @@ const updateBlog = async (req, res) => {
     const updates = {};
     if (title) updates.title = title;
     if (content) updates.content = content;
-    if (category) updates.category = category;
+    if (tags) {
+      updates.tags = tags.split(",").map((tag) => tag.trim());
+    }
 
     updates.updatedAt = Date.now();
 
@@ -457,5 +459,5 @@ module.exports = {
   UnlikeBlog,
   getTotalCounts,
   deleteComment,
-  editComment
+  editComment,
 };
