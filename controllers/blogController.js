@@ -109,22 +109,23 @@ const updateBlog = async (req, res) => {
 
 const getAllBlogs = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1; // Get the page number from query, default to 1
-    const limit = 5; // Number of blogs per page
-    const skip = (page - 1) * limit; // Skip the number of blogs based on the current page
+    const page = parseInt(req.query.page) || 1; 
+    const limit = 5; 
+    const skip = (page - 1) * limit; 
 
-    // Fetch total number of blogs for pagination
+    
     const totalBlogs = await Blog.countDocuments();
 
-    // Fetch the blogs for the current page with population and image URLs
+   
     const blogs = await Blog.find()
       .skip(skip)
+      .sort({ createdAt: -1 })
       .limit(limit)
       .populate("user", "name email")
       .populate("comments.user", "name email")
       .exec();
 
-    // Map blogs to include image URLs
+ 
     const blogsWithImageUrls = blogs.map((blog) => ({
       ...blog._doc,
       image: blog.image
@@ -132,10 +133,10 @@ const getAllBlogs = async (req, res) => {
         : null,
     }));
 
-    // Calculate the total number of pages
+    
     const totalPages = Math.ceil(totalBlogs / limit);
 
-    // Send response with pagination data
+    
     res.status(200).json({
       blogs: blogsWithImageUrls,
       currentPage: page,
